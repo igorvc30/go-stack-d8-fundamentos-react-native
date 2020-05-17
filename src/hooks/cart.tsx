@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import AsyncStorage from '@react-native-community/async-storage';
+import api from 'src/services/api';
 
 interface Product {
   id: string;
@@ -30,23 +31,75 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const products = await AsyncStorage.getItem('@D8:products');
+      if (products) {
+        const parsedProducts: Array<Product> = JSON.parse(products);
+        setProducts(parsedProducts);
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  const addToCart = useCallback(
+    async (product: Omit<Product, 'quantity'>) => {
+      const foundedProduct = products.find(p => p.id == product.id);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+      if (!foundedProduct) {
+        const updatedList = [...products, { ...product, quantity: 1 }];
+        setProducts(updatedList);
+        await AsyncStorage.setItem('@D8:products', JSON.stringify(updatedList));
+      } else {
+        const filteredList = products.filter(p => p.id !== product.id);
+        const updatedQuantity = {
+          ...foundedProduct,
+          quantity: foundedProduct.quantity + 1,
+        };
+        const updatedList = [...filteredList, updatedQuantity];
+        setProducts(updatedList);
+        await AsyncStorage.setItem('@D8:products', JSON.stringify(updatedList));
+      }
+    },
+    [products],
+  );
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const increment = useCallback(
+    async id => {
+      const foundedProduct = products.find(p => p.id == id);
+      const filteredList = products.filter(p => p.id !== id);
+      const updatedQuantity = {
+        ...foundedProduct,
+        quantity: foundedProduct && foundedProduct.quantity + 1,
+      };
+      const updatedList = [...filteredList, updatedQuantity];
+      setProducts(updatedList);
+      await AsyncStorage.setItem('@D8:products', JSON.stringify(updatedList));
+    },
+    [products],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      const foundedProduct = products.find(p => p.id == id);
+      const filteredList = products.filter(p => p.id !== id);
+      const updatedQuantity = {
+        ...foundedProduct,
+        quantity: foundedProduct && foundedProduct.quantity - 1,
+      };
+      if (updatedQuantity.quantity === 0) {
+        setProducts(filteredList);
+        await AsyncStorage.setItem(
+          '@D8:products',
+          JSON.stringify(filteredList),
+        );
+      } else {
+        const updatedList = [...filteredList, updatedQuantity];
+        setProducts(updatedList);
+        await AsyncStorage.setItem('@D8:products', JSON.stringify(updatedList));
+      }
+    },
+    [products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
